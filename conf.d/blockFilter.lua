@@ -7,8 +7,11 @@ function loadBlockedDomains(file)
     if f~=nil
     then
 		for domain in io.lines(file) do
-			domains[domain] = true
+			-- as public lists do not have proper domain notation
+    		-- (ending with dot), remove the one in the query
+			domains[domain.."."] = true
 		end
+
 		io.close(f)
     else
         errlog("The file containing blacklisted domains is missing or inaccessible!")
@@ -28,10 +31,7 @@ infolog("Domain Blacklist loaded!")
 function blockFilter(dq)
 	local qname = dq.qname:toString()
 
-	-- as public lists do not have
-    -- proper domain notation (ending with dot)
-    -- remove the one in the query
-	if blocklist[qname:sub(1,-2)]
+	if blocklist[qname]
 	then
 		-- this drop the query, COMPLETELY
 		-- the client will have to timeout
