@@ -12,30 +12,29 @@ function loadBlockedDomains(file)
 			domains[domain.."."] = true
 		end
 
-		io.close(f)
+		f:close(f)
     else
-        errlog("The file containing blacklisted domains is missing or inaccessible!")
+        errlog("The domain list is missing or inaccessible!")
     end
 	
 	return domains
 end
 
-infolog("Loading the blacklisted domains ...")
+infolog("[dagg] (re)loading blocklist...")
 
-blocklist = loadBlockedDomains("/tmp/domain.blacklist")
+blocklist = loadBlockedDomains("/tmp/path-to-my-block.list")
 
-infolog("Domain Blacklist loaded!")
+infolog("[dagg] complete!")
 
 -- blockFilter is a built-in function in dnsdist
--- it gets called when a query is received
+-- it gets called whenever a query is received
 function blockFilter(dq)
 	local qname = dq.qname:toString()
 
 	if blocklist[qname]
 	then
-		-- this drop the query, COMPLETELY
-		-- the client will have to timeout
-		-- IT WILL NOT RECEIVE A RESPONSE
+		-- this drops the query COMPLETELY
+		-- the client will timeout (hang)
 		return true
 	end
 	
