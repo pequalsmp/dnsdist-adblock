@@ -70,7 +70,7 @@ end
 
 -- main query action
 function isDomainBlocked(dq)
-    local qname = dq.qname:toString()
+    local qname = dq.qname:toString():lower()
 
     -- as public lists do not have proper domain notation
     -- (ending with dot), remove the one in the query
