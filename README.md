@@ -16,7 +16,7 @@ Installation
 
 1. Copy `conf.d` folder to your `dnsdist` configuration folder. The default is `/etc/dnsdist`
 
-2. Customize the `addLuaAction.lua` file to match your setup, i.e. change `dagg.config.blocklist.path` and `dagg.config.reload.target`
+2. Customize the `dagg.lua` file to match your setup, i.e. change `dagg.config.blocklist.path` and `dagg.config.reload.target`
 
 3. Add the following to your `dnsdist.conf`
 

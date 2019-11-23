@@ -85,7 +85,7 @@ function daggIsDomainBlocked(dq)
         -- dq:setTag("dagg", "true")
 
         -- WARNING: it (may?) affect(s) performance
-        -- writeToActionLog(dq)
+        -- daggWriteToActionLog(dq)
 
         -- return NXDOMAIN - its fast, but apparently 
         -- some apps resort to hard-coded entries if NX
@@ -97,7 +97,7 @@ function daggIsDomainBlocked(dq)
 
     return DNSAction.None, ""
 end
-addLuaAction(AllRule(), daggIsDomainBlocked)
+addAction(AllRule(), LuaAction(daggIsDomainBlocked))
 
 -- reload action
 function daggReloadBlocklist(dq)
@@ -115,7 +115,7 @@ function daggReloadBlocklist(dq)
     -- respond with a local address just in case
     return DNSAction.Spoof, "127.0.0.1"
 end
-addLuaAction(dagg.config.reload.target, daggReloadBlocklist)
+addAction(dagg.config.reload.target, LuaAction(daggReloadBlocklist))
 
 -- unload action
 function daggUnloadBlocklist(dq)
@@ -130,4 +130,4 @@ function daggUnloadBlocklist(dq)
     -- respond with a local address just in case
     return DNSAction.Spoof, "127.0.0.1"
 end
-addLuaAction(dagg.config.unload.target, daggUnloadBlocklist)
+addAction(dagg.config.unload.target, LuaAction(daggUnloadBlocklist))
