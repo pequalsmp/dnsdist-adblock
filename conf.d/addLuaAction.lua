@@ -12,13 +12,16 @@ dagg = {
             path  = "/tmp/path-to-my-block.list",
         },
         reload = {
-            target = "change.me.to.something.local.",
+            target = "reload.change.me.to.something.local.",
+        },
+        unload = {
+            target = "unload.hange.me.to.something.local.",
         }
     }
 }
 
 -- read all the domains in a set
-function loadDomainsFromFile(file)
+function daggLoadDomainsFromFile(file)
     local domains = {}
 
     local f = io.open(file, "rb")
@@ -39,20 +42,19 @@ function loadDomainsFromFile(file)
 end
 
 -- load the blocklisted domains
-function loadBlocklist()
+function daggLoadBlocklist()
+    dagg.blocklist = daggLoadDomainsFromFile(dagg.config.blocklist.path)
+end
+
+-- clear the blocklist from memory
+function daggClearBlocklist()
     -- free-up memory
     dagg.blocklist = {}
     collectgarbage()
- 
-    infolog("[dagg] (re)loading blocklist...")
-
-    dagg.blocklist = loadDomainsFromFile(dagg.config.blocklist.path)
-
-    infolog("[dagg] complete!")
 end
 
 -- write down a query to the action log
-function writeToActionLog(dq)
+function daggWriteToActionLog(dq)
     -- write-down the query
     local f = io.open(dagg.config.actionlog.path, "a")
 
@@ -61,7 +63,7 @@ function writeToActionLog(dq)
         local query_name  = dq.qname:toString()
         local remote_addr = dq.remoteaddr:toString()
 
-        msg = string.format("[%s][%s] %s", os.date("!%Y-%m-%dT%TZ",t), remote_addr, query_name)
+        local msg = string.format("[%s][%s] %s", os.date("!%Y-%m-%dT%TZ",t), remote_addr, query_name)
 
         f:write(msg, "\n")
         f:close(f)
@@ -69,22 +71,22 @@ function writeToActionLog(dq)
 end
 
 -- main query action
-function isDomainBlocked(dq)
+function daggIsDomainBlocked(dq)
     local qname = dq.qname:toString():lower()
 
-    -- as public lists do not have proper domain notation
-    -- (ending with dot), remove the one in the query
     if dagg.blocklist[qname]
     then
         -- set QueryResponse, so the query never goes upstream
         dq.dh:setQR(true)
 
-        -- set Custom tag, so we can process only
+        -- set a CustomTag
+        -- you can optionally set a tag and process
+        -- this request with other actions/pools
         -- dq:setTag("dagg", "true")
 
-        -- WARNING: it (may?) affect performance
+        -- WARNING: it (may?) affect(s) performance
         -- writeToActionLog(dq)
-	
+
         -- return NXDOMAIN - its fast, but apparently 
         -- some apps resort to hard-coded entries if NX
         -- try spoofing in this instance.
@@ -95,19 +97,37 @@ function isDomainBlocked(dq)
 
     return DNSAction.None, ""
 end
+addLuaAction(AllRule(), daggIsDomainBlocked)
 
 -- reload action
-function reloadBlocklist(dq)
-    -- reload
-    loadBlocklist()
+function daggReloadBlocklist(dq)
+    infolog("[dagg] (re)loading blocklist...")
 
     -- prevent the query from going upstream
     dq.dh:setQR(true)
- 
+
+    -- clear
+    daggClearBlocklist()
+
+    -- load
+    daggLoadBlocklist()
+
     -- respond with a local address just in case
     return DNSAction.Spoof, "127.0.0.1"
 end
+addLuaAction(dagg.config.reload.target, daggReloadBlocklist)
 
-addLuaAction(AllRule(), isDomainBlocked)
+-- unload action
+function daggUnloadBlocklist(dq)
+    infolog("[dagg] unloading blocklist...")
 
-addLuaAction(dagg.config.reload.target, reloadBlocklist)
+    -- prevent the query from going upstream
+    dq.dh:setQR(true)
+
+    -- clear
+    daggClearBlocklist()
+
+    -- respond with a local address just in case
+    return DNSAction.Spoof, "127.0.0.1"
+end
+addLuaAction(dagg.config.unload.target, daggUnloadBlocklist)
