@@ -1,8 +1,4 @@
 dagg = {
-    -- set of blocklisted domains
-    blocklist = {
-
-    },
     -- config
     config = {
         actionlog = {
@@ -17,12 +13,23 @@ dagg = {
         unload = {
             target = "unload.hange.me.to.something.local.",
         }
+    },
+    -- table storing the domains that
+    -- need to be blocked
+    table = {
+        -- only used for wildcard domains
+        smn = newSuffixMatchNode(),
+        -- default - fast string comparison
+        str = {},
     }
 }
 
 -- read all the domains in a set
-function daggLoadDomainsFromFile(file)
-    local domains = {}
+function daggLoadDomainsFromFile(file, isWildCard)
+    local domains = {
+        smn = {},
+        str = {}
+    }
 
     local f = io.open(file, "rb")
 
@@ -30,7 +37,11 @@ function daggLoadDomainsFromFile(file)
     if f~=nil
     then
         for domain in f:lines() do
-            domains[domain.."."] = true
+            if string.find(domain, "*") then
+                table.insert(domains["smn"], domain)
+            else
+                table.insert(domains["str"], domain)
+            end
         end
 
         f:close(f)
@@ -41,15 +52,39 @@ function daggLoadDomainsFromFile(file)
     return domains
 end
 
--- load the blocklisted domains
+-- verbose, but clear
 function daggLoadBlocklist()
-    dagg.blocklist = daggLoadDomainsFromFile(dagg.config.blocklist.path)
+    local domains = daggLoadDomainsFromFile(dagg.config.blocklist.path)
+
+    daggLoadStrTable(domains.str)
+    daggLoadSmnTable(domains.smn)
 end
 
--- clear the blocklist from memory
-function daggClearBlocklist()
+-- load the str domains
+function daggLoadStrTable(domains)
+    for _,domain in pairs(domains) do
+        dagg.table.str[domain.."."] = true
+    end
+end
+
+-- load smn domains
+function daggLoadSmnTable(domains)
+    dagg.table.smn = newSuffixMatchNode()
+
+    for _,domain in pairs(domains) do
+        local suffix = domain:gsub("*.", "")
+        dagg.table.smn:add(suffix)
+    end
+end
+
+-- clear the table from memory
+function daggClearTable()
+    dagg.table = {
+        smn = newSuffixMatchNode(),
+        str = {}
+    }
+
     -- free-up memory
-    dagg.blocklist = {}
     collectgarbage()
 end
 
@@ -74,7 +109,7 @@ end
 function daggIsDomainBlocked(dq)
     local qname = dq.qname:toString():lower()
 
-    if dagg.blocklist[qname]
+    if dagg.table.str[qname] or dagg.table.smn:check(dq.qname)
     then
         -- set QueryResponse, so the query never goes upstream
         dq.dh:setQR(true)
@@ -87,7 +122,7 @@ function daggIsDomainBlocked(dq)
         -- WARNING: it (may?) affect(s) performance
         -- daggWriteToActionLog(dq)
 
-        -- return NXDOMAIN - its fast, but apparently 
+        -- return NXDOMAIN - its fast, but apparently
         -- some apps resort to hard-coded entries if NX
         -- try spoofing in this instance.
 
@@ -107,7 +142,7 @@ function daggReloadBlocklist(dq)
     dq.dh:setQR(true)
 
     -- clear
-    daggClearBlocklist()
+    daggClearTable()
 
     -- load
     daggLoadBlocklist()
@@ -125,7 +160,7 @@ function daggUnloadBlocklist(dq)
     dq.dh:setQR(true)
 
     -- clear
-    daggClearBlocklist()
+    daggClearTable()
 
     -- respond with a local address just in case
     return DNSAction.Spoof, "127.0.0.1"
