@@ -15,9 +15,9 @@ This repository contains scripts that can be used for automated & aggregated dom
 Installation
 ---
 
-1. Copy `conf.d` folder to your `dnsdist` configuration folder. The default is `/etc/dnsdist`
+1. Create `conf.d` folder in your `dnsdist` configuration folder (the default is `/etc/dnsdist`)
 
-2. Customize the `dagg.lua` file to match your setup, i.e. change `dagg.config.blocklist.path` and `dagg.config.reload.target`
+2. Copy `dagg.lua` (from `dagg/dagg.lua`) and customize it to match your setup, i.e. change `dagg.config.blocklist.path` and `dagg.config.reload.target`
 
 3. Add the following to your `dnsdist.conf`
 
