@@ -32,13 +32,16 @@ function DaggLoadDomainsFromFile(file)
 
 	local f = io.open(file, "rb")
 
+	-- optimization?
+	local strFind = string.find
+
 	-- verify that the file exists and it is accessible
 	if f ~= nil then
 		for domain in f:lines() do
-			if string.find(domain, "*") then
-				table.insert(domains["smn"], domain)
+			if strFind(domain, "*") then
+				domains["smn"][#domains["smn"] + 1] = domain
 			else
-				table.insert(domains["str"], domain)
+				domains["str"][#domains["str"] + 1] = domain
 			end
 		end
 
@@ -62,9 +65,9 @@ end
 
 -- load the str domains
 function DaggLoadStrTable(domains)
-	for _, domain in pairs(domains) do
-		Dagg.table.str[domain .. "."] = true
-	end
+  for _, domain in pairs(domains) do
+    Dagg.table.str[domain .. "."] = 1
+  end
 end
 
 -- load smn domains
