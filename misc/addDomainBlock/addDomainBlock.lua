@@ -1,5 +1,5 @@
 -- addDomainBlock all domains listed in the file
-function loadBlocklist(file)
+local function loadBlocklist(file)
     local f = io.open(file, "rb")
 
     -- verify that the file exists and it is accessible
@@ -9,7 +9,7 @@ function loadBlocklist(file)
             addDomainBlock(domain)
         end
 
-        f:close(f)
+        f:close()
     else
         errlog("The domain list is missing or inaccessible!")
     end

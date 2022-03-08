@@ -1,150 +1,149 @@
-package.path = ';/<dnsdist-conf-path>/bloom-filter/?.lua;/<dnsdist-conf-path>/xxhash/?.lua;' .. package.path
+package.path = ";./bloom-filter/?.lua;./xxhash/?.lua;" .. package.path
 
-local bloom_filter = require "bloom-filter"
+local bloom_filter = require("bloom-filter")
 
-local dagg = {
-    -- bloom filter config
-    bloom = {
-        filter = nil,
-        -- it's important to tune this parameter to your 
-        -- setup higher false-positive probability 
-        -- reduces the memory usage, but increases the 
-        -- chance for a false-positive.
-        --
-        -- change the exponent if you would like to
-        -- increase/decrease the false-positive probability
-        probability = 1.0 * (10^-6)
-    },
-    -- config
-    config = {
-        actionlog = {
-            path =  "/tmp/path-to-my-action.log",
-        },
-        blocklist = {
-            path  = "/tmp/path-to-my-block.list",
-        },
-        reload = {
-            target = "reload.change.me.to.something.local.",
-        },
-        unload = {
-            target = "unload.hange.me.to.something.local.",
-        }
-    }
+local Dagg = {
+	-- bloom filter config
+	bloom = {
+		filter = nil,
+		-- it's important to tune this parameter to your
+		-- setup higher false-positive probability
+		-- reduces the memory usage, but increases the
+		-- chance for a false-positive.
+		--
+		-- change the exponent if you would like to
+		-- increase/decrease the false-positive probability
+		probability = 1.0 * (10 ^ -6),
+	},
+	-- config
+	config = {
+		actionlog = {
+			path = "/tmp/path-to-my-action.log",
+		},
+		blocklist = {
+			path = "/tmp/path-to-my-block.list",
+		},
+		reload = {
+			target = "reload.change.me.to.something.local.",
+		},
+		unload = {
+			target = "unload.change.me.to.something.local.",
+		},
+	},
 }
-    
+
 -- read all the domains in a set
-function daggLoadDomainsFromFile(file)
-    local domains = {}
+function DaggLoadDomainsFromFile(file)
+	local domains = {}
 
-    local f = io.open(file, "rb")
+	local f = io.open(file, "rb")
 
-    -- verify that the file exists and it is accessible
-    if f~=nil
-    then
-        for domain in f:lines() do
-            table.insert(domains, domain..".")
-        end
+	-- verify that the file exists and it is accessible
+	if f ~= nil then
+		for domain in f:lines() do
+			table.insert(domains, domain .. ".")
+		end
 
-        -- init the bloom filter
-        dagg.bloom.filter = bloom_filter.new(table.getn(domains), dagg.bloom.probability)
+		-- init the bloom filter
+		Dagg.bloom.filter = bloom_filter.new(#domains, Dagg.bloom.probability)
 
-        for i, domain in pairs(domains) do
-            dagg.bloom.filter:add(domain)
-        end
+		for _, domain in pairs(domains) do
+			Dagg.bloom.filter:add(domain)
+		end
 
-        f:close(f)
-    else
-        errlog("The domain list is missing or inaccessible!")
-    end
+		f:close()
+	else
+		errlog("The domain list is missing or inaccessible!")
+	end
+
+	collectgarbage()
 end
 
 -- load the blocklisted domains
-function daggLoadBlocklist()
-    daggLoadDomainsFromFile(dagg.config.blocklist.path)
+function DaggLoadBlocklist()
+	DaggLoadDomainsFromFile(Dagg.config.blocklist.path)
 end
 
 -- clear the blocklist from memory
-function daggClearBlocklist()
-    -- free-up memory
-    dagg.bloom.filter = nil
-    collectgarbage()
+function DaggClearBlocklist()
+	Dagg.bloom.filter = nil
+
+	collectgarbage()
 end
 
 -- write down a query to the action log
-function daggWriteToActionLog(dq)
-    -- write-down the query
-    local f = io.open(dagg.config.actionlog.path, "a")
+function DaggWriteToActionLog(dq)
+	-- write-down the query
+	local f = io.open(Dagg.config.actionlog.path, "a")
 
-    if f~=nil
-    then
-        local query_name  = dq.qname:toString()
-        local remote_addr = dq.remoteaddr:toString()
+	if f ~= nil then
+		local query_name = dq.qname:toString()
+		local remote_addr = dq.remoteaddr:toString()
 
-        local msg = string.format("[%s][%s] %s", os.date("!%Y-%m-%dT%TZ",t), remote_addr, query_name)
+		local msg = string.format("[%s][%s] %s", os.date("!%Y-%m-%dT%TZ", t), remote_addr, query_name)
 
-        f:write(msg, "\n")
-        f:close(f)
-    end
+		f:write(msg, "\n")
+		f:close()
+	end
 end
 
 -- main query action
-function daggIsDomainBlocked(dq)
-    local qname = dq.qname:toString():lower()
+function DaggIsDomainBlocked(dq)
+	local qname = dq.qname:toString():lower()
 
-    if (dagg.bloom.filter ~= nil) and (dagg.bloom.filter:query(qname) == 1)
-    then
-        -- set QueryResponse, so the query never goes upstream
-        dq.dh:setQR(true)
+	if Dagg.bloom.filter:query(qname) == 1 then
+		-- set QueryResponse, so the query never goes upstream
+		dq.dh:setQR(true)
 
-        -- set a CustomTag
-        -- you can optionally set a tag and process
-        -- this request with other actions/pools
-        -- dq:setTag("dagg", "true")
+		-- set a CustomTag
+		-- you can optionally set a tag and process
+		-- this request with other actions/pools
+		-- dq:setTag("Dagg", "true")
 
-        -- WARNING: it (may?) affect(s) performance
-        -- daggWriteToActionLog(dq)
+		-- WARNING: it (may?) affect(s) performance
+		-- DaggWriteToActionLog(dq)
 
-        -- return NXDOMAIN - its fast, but apparently 
-        -- some apps resort to hard-coded entries 
-        return DNSAction.Nxdomain, ""
+		-- return NXDOMAIN - its fast, but apparently
+		-- some apps resort to hard-coded entries if NX
+		-- try spoofing in this instance.
 
-        -- if NX doesn't work, try spoofing.
-        -- return DNSAction.Spoof, "127.0.0.1"
-    end
+		return DNSAction.Nxdomain, ""
+		-- return DNSAction.Spoof, "127.0.0.1"
+	end
 
-    return DNSAction.None, ""
+	return DNSAction.None, ""
 end
-addAction(AllRule(), LuaAction(daggIsDomainBlocked))
+addAction(AllRule(), LuaAction(DaggIsDomainBlocked))
 
 -- reload action
-function daggReloadBlocklist(dq)
-    infolog("[dagg] (re)loading blocklist...")
+function DaggReloadBlocklist(dq)
+	infolog("[Dagg] (re)loading blocklist...")
 
-    -- prevent the query from going upstream
-    dq.dh:setQR(true)
+	-- prevent the query from going upstream
+	dq.dh:setQR(true)
 
-    -- clear
-    daggClearBlocklist()
+	-- clear
+	DaggClearBlocklist()
 
-    -- load
-    daggLoadBlocklist()
+	-- load
+	DaggLoadBlocklist()
 
-    -- respond with a local address just in case
-    return DNSAction.Spoof, "127.0.0.1"
+	-- respond with a local address just in case
+	return DNSAction.Spoof, "127.0.0.1"
 end
-addAction(dagg.config.reload.target, LuaAction(daggReloadBlocklist))
+addAction(Dagg.config.reload.target, LuaAction(DaggReloadBlocklist))
 
 -- unload action
-function daggUnloadBlocklist(dq)
-    infolog("[dagg] unloading blocklist...")
+function DaggUnloadBlocklist(dq)
+	infolog("[Dagg] unloading blocklist...")
 
-    -- prevent the query from going upstream
-    dq.dh:setQR(true)
+	-- prevent the query from going upstream
+	dq.dh:setQR(true)
 
-    -- clear
-    daggClearBlocklist()
+	-- clear
+	DaggClearBlocklist()
 
-    -- respond with a local address just in case
-    return DNSAction.Spoof, "127.0.0.1"
+	-- respond with a local address just in case
+	return DNSAction.Spoof, "127.0.0.1"
 end
-addAction(dagg.config.unload.target, LuaAction(daggUnloadBlocklist))
+addAction(Dagg.config.unload.target, LuaAction(DaggUnloadBlocklist))
