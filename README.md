@@ -36,7 +36,7 @@ _Note: Change the path of the directory, accordingly on your system!_
 Notes
 --- 
 
-1. To prevent DNS outages, the blocklist is *NOT* automatically loaded at startup, this has to be done manually (via script) or you can simply edit the script to your liking
+1. To prevent DNS outages, the blocklist is *NOT* automatically loaded at startup, this has to be done manually, via script, or you can simply edit the script to your liking
 2. It's recommended to query the `reload` domain, every-time you update your blocklist
 3. You can specify anything for `reload` domain, however sticking to pre-defined reserved-use domains (like `.local`) is recommended
 
