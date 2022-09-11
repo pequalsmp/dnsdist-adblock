@@ -25,59 +25,51 @@ Dagg = {
 
 -- read all the domains in a set
 function DaggLoadDomainsFromFile(file)
-	local domains = {
-		smn = {},
-		str = {},
-	}
-
 	local f = io.open(file, "rb")
-
-	-- optimization?
-	local strFind = string.find
 
 	-- verify that the file exists and it is accessible
 	if f ~= nil then
 		for domain in f:lines() do
-			if strFind(domain, "*") then
-				domains["smn"][#domains["smn"] + 1] = domain
+			if string.find(domain, "*") then
+				local suffix = domain:gsub("*.", "")
+				Dagg.table.smn:add(suffix)
 			else
-				domains["str"][#domains["str"] + 1] = domain
+				Dagg.table.str[domain] = 1
 			end
 		end
 
 		f:close()
-	else
-		errlog("The domain list is missing or inaccessible!")
 	end
-
-	return domains
 end
 
 -- verbose, but clear
 function DaggLoadBlocklist()
-	local domains = DaggLoadDomainsFromFile(Dagg.config.blocklist.path)
+	-- no reason, just for clarity
+	local file = Dagg.config.blocklist.path
+	-- not really necessary, but keep similarity to other versions
 
-	DaggLoadStrTable(domains.str)
-	DaggLoadSmnTable(domains.smn)
+	local f = io.open(file, "rb")
 
-	collectgarbage()
-end
+	if f ~= nil then
+		-- string concat is not working in lua
+		-- but this uses concat
+		-- yes, it's ironic
+		--
+		-- by not working, it appears that even when
+		-- using 'local var = str2 .. str2', the memory
+		-- is not being garbage-collected and it ends up
+		-- looking like a memory leak.
+		--
+		-- might be an oversight, let me know if if there's
+		-- a better way. otherwise run this hack
+		os.execute("sed '/\\.$/ ! s/$/\\./' -i " .. file)
 
--- load the str domains
-function DaggLoadStrTable(domains)
-  for _, domain in pairs(domains) do
-    Dagg.table.str[domain .. "."] = 1
-  end
-end
-
--- load smn domains
-function DaggLoadSmnTable(domains)
-	Dagg.table.smn = newSuffixMatchNode()
-
-	for _, domain in pairs(domains) do
-		local suffix = domain:gsub("*.", "")
-		Dagg.table.smn:add(suffix)
+		f:close()
+	else
+		errlog "[Dagg] the blocklist file is missing or inaccessible!"
 	end
+
+	DaggLoadDomainsFromFile(file)
 end
 
 -- clear the table from memory
@@ -86,9 +78,6 @@ function DaggClearTable()
 		smn = newSuffixMatchNode(),
 		str = {},
 	}
-
-	-- free-up memory
-	collectgarbage()
 end
 
 -- write down a query to the action log
@@ -128,6 +117,10 @@ function DaggIsDomainBlocked(dq)
 		-- try spoofing in this instance.
 
 		return DNSAction.Nxdomain, ""
+
+		-- return Spoof - you can spoof the response
+		-- instead of NX, but this may lead to time-outs
+		--
 		-- return DNSAction.Spoof, "127.0.0.1"
 	end
 
@@ -137,7 +130,7 @@ addAction(AllRule(), LuaAction(DaggIsDomainBlocked))
 
 -- reload action
 function DaggReloadBlocklist(dq)
-	infolog("[Dagg] (re)loading blocklist...")
+	infolog "[Dagg] re/loading blocklist..."
 
 	-- prevent the query from going upstream
 	dq.dh:setQR(true)
@@ -145,17 +138,23 @@ function DaggReloadBlocklist(dq)
 	-- clear
 	DaggClearTable()
 
+	-- free-up memory
+	collectgarbage "collect"
+
 	-- load
 	DaggLoadBlocklist()
 
+	-- free-up memory
+	collectgarbage "collect"
+
 	-- respond with a local address just in case
-	return DNSAction.Spoof, "127.0.0.1"
+	return DNSAction.Spoof, "127.0.0.127"
 end
 addAction(Dagg.config.reload.target, LuaAction(DaggReloadBlocklist))
 
 -- unload action
 function DaggUnloadBlocklist(dq)
-	infolog("[Dagg] unloading blocklist...")
+	infolog "[Dagg] unloading blocklist..."
 
 	-- prevent the query from going upstream
 	dq.dh:setQR(true)
@@ -163,7 +162,10 @@ function DaggUnloadBlocklist(dq)
 	-- clear
 	DaggClearTable()
 
+	-- free-up memory
+	collectgarbage "collect"
+
 	-- respond with a local address just in case
-	return DNSAction.Spoof, "127.0.0.1"
+	return DNSAction.Spoof, "127.0.0.127"
 end
 addAction(Dagg.config.unload.target, LuaAction(DaggUnloadBlocklist))

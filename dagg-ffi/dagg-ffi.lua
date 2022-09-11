@@ -18,10 +18,10 @@ Dagg = {
 	table = {
 		-- struct of the filter
 		fuse16 = nil,
-		-- only used for wildcard-suffixed domains
+		-- only used for wildcard domains
 		suffix = nil,
 	},
-	-- keep a local FFI copy to avoid API conflict
+	-- keep a local ffi copy to avoid API conflict
 	ffi = require "ffi",
 	-- C-library containing the filter implementation
 	lib = {},
@@ -47,83 +47,76 @@ Dagg.ffi.cdef [[
 Dagg.lib = Dagg.ffi.load "libdagg"
 
 -- read all the domains in a set
-function DaggLoadDomainsFromFile(file)
-	local domains = {
-		fuse16 = {},
-		suffix = {},
-	}
-
-	-- string concat is not working in lua
-	-- but this uses concat
-	-- yes, it's ironic
-	--
-	-- by not working, it appears that even when
-	-- using 'local var = str2 .. str2', the memory
-	-- is not being garbage-collected and it ends up
-	-- looking like a memory leak.
-	--
-	-- might be an oversight, let me know if if there's
-	-- a better way. otherwise run this hack
-	os.execute("sed '/\\.$/ ! s/$/\\./' -i " .. file)
-
+function DaggLoadDomainsFromFile(file, lineCount)
 	local f = io.open(file, "rb")
 
-	-- optimization?
-	local strFind = string.find
-
-	-- verify that the file exists and it is accessible
+	-- make sure the file has opened successfully
+	-- yes, we just counted the lines, but still
 	if f ~= nil then
+		-- initialize filter
+		local set = Dagg.ffi.new("uint64_t[?]", lineCount)
+
+		-- initialize suffix for wildcard domains
+		Dagg.table.suffix = newSuffixMatchNode()
+
+		-- set index
+		local _ = 0
+
 		for domain in f:lines() do
-			if strFind(domain, "*") then
-				-- slightly faster compared to table.insert
-				-- should quantify by how much, though
-				domains["suffix"][#domains["suffix"] + 1] = domain
+			-- handle wildcard domains
+			if string.find(domain, "*") then
+				local suffix = domain:gsub("*.", "")
+				Dagg.table.suffix:add(suffix)
+			-- everything else
 			else
-				domains["fuse16"][#domains["fuse16"] + 1] = domain
+				set[_] = Dagg.lib.xxhash(domain)
+				_ = _ + 1
 			end
 		end
 
+		-- close the file
 		f:close()
-	else
-		errlog "The domain list is missing or inaccessible!"
-	end
 
-	DaggBuildFuseFilter(domains.fuse16)
-	DaggLoadSuffixTable(domains.suffix)
+		-- initialize the filter set
+		Dagg.table.fuse16 = Dagg.ffi.gc(Dagg.lib.initialize(set, lineCount), Dagg.lib.deinit)
+	end
 end
 
 -- verbose, but clear
 function DaggLoadBlocklist()
-	-- local domains = DaggLoadDomainsFromFile(Dagg.config.blocklist.path)
-	--
-	-- DaggBuildFuseFilter(domains.fuse16)
-	-- DaggLoadSuffixTable(domains.suffix)
+	-- no reason, just for clarity
+	local file = Dagg.config.blocklist.path
 
-	DaggLoadDomainsFromFile(Dagg.config.blocklist.path)
-end
+	local f = io.open(file, "rb")
 
--- load the str domains
-function DaggBuildFuseFilter(domains)
-	local set = Dagg.ffi.new("uint64_t[?]", #domains)
+	-- no built-in method for counting lines
+	-- so do it, really verbose
+	local lineCount = 0
 
-	for _, domain in pairs(domains) do
-		set[_] = Dagg.lib.xxhash(domain)
+	-- verify that the file exists and it is accessible
+	if f ~= nil then
+		for _ in f:lines() do
+			lineCount = lineCount + 1
+		end
+		-- string concat is not working in lua
+		-- but this uses concat
+		-- yes, it's ironic
+		--
+		-- by not working, it appears that even when
+		-- using 'local var = str2 .. str2', the memory
+		-- is not being garbage-collected and it ends up
+		-- looking like a memory leak.
+		--
+		-- might be an oversight, let me know if if there's
+		-- a better way. otherwise run this hack
+		os.execute("sed '/\\.$/ ! s/$/\\./' -i " .. file)
+
+		f:close()
+	else
+		errlog "[Dagg] the blocklist file missing or inaccessible!"
 	end
 
-	Dagg.table.fuse16 = Dagg.ffi.gc(Dagg.lib.initialize(set, #domains), Dagg.lib.deinit)
-
-	-- needed?
-	-- set = nil
-end
-
--- load suffix (wildcard) domains
-function DaggLoadSuffixTable(domains)
-	Dagg.table.suffix = newSuffixMatchNode()
-
-	for _, domain in pairs(domains) do
-		local suffix = domain:gsub("*.", "")
-		Dagg.table.suffix:add(suffix)
-	end
+	DaggLoadDomainsFromFile(file, lineCount)
 end
 
 -- clear the table from memory
@@ -193,7 +186,7 @@ addAction(AllRule(), LuaAction(DaggIsDomainBlocked))
 
 -- reload action
 function DaggReloadBlocklist(dq)
-	infolog "[Dagg] (re)loading blocklist..."
+	infolog "[Dagg] re/loading blocklist..."
 
 	-- prevent the query from going upstream
 	dq.dh:setQR(true)
