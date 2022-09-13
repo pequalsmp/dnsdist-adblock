@@ -1,3 +1,5 @@
+local blocklistPath = "/tmp/path/to/my/block.list"
+
 -- load the blocked domain list
 local function loadBlockedDomains(file)
 	local domains = {}
@@ -13,17 +15,17 @@ local function loadBlockedDomains(file)
 
 		f:close()
 	else
-		errlog("The domain list is missing or inaccessible!")
+		errlog "The domain list is missing or inaccessible!"
 	end
 
 	return domains
 end
 
-infolog("[dagg] (re)loading blocklist...")
+infolog "[blockFilter] loading blocklist..."
 
-Blocklist = loadBlockedDomains("/tmp/path-to-my-block.list")
+Blocklist = loadBlockedDomains(blocklistPath)
 
-infolog("[dagg] complete!")
+infolog "[blockFilter] loading done."
 
 -- blockFilter is a built-in function in dnsdist
 -- it gets called whenever a query is received

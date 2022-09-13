@@ -54,6 +54,9 @@ function DaggLoadDomainsFromFile(file, lineCount)
 	-- yes, we just counted the lines, but still
 	if f ~= nil then
 		-- initialize filter
+		--
+		-- yes, the array is larger, than the set, it's easier
+		-- instead of running another loop, just to count the domains
 		local set = Dagg.ffi.new("uint64_t[?]", lineCount)
 
 		-- initialize suffix for wildcard domains
@@ -194,13 +197,13 @@ function DaggReloadBlocklist(dq)
 	-- clear
 	DaggClearTable()
 
-	-- free-up memory
+	-- clean-up
 	collectgarbage "collect"
 
 	-- load
 	DaggLoadBlocklist()
 
-	-- free-up memory
+	-- clean-up
 	collectgarbage "collect"
 
 	-- respond with a local address just in case
@@ -218,7 +221,7 @@ function DaggUnloadBlocklist(dq)
 	-- clear
 	DaggClearTable()
 
-	-- free-up memory
+	-- clean-up
 	collectgarbage "collect"
 
 	-- respond with a local address just in case

@@ -2,10 +2,10 @@ Dagg = {
 	-- config
 	config = {
 		actionlog = {
-			path = "/tmp/path-to-my-action.log",
+			path = "/tmp/path/to/my/action.log",
 		},
 		blocklist = {
-			path = "/tmp/path-to-my-block.list",
+			path = "/tmp/path/to/my/block.list",
 		},
 		reload = {
 			target = "reload.change.me.to.something.local.",
@@ -138,13 +138,13 @@ function DaggReloadBlocklist(dq)
 	-- clear
 	DaggClearTable()
 
-	-- free-up memory
+	-- clean-up
 	collectgarbage "collect"
 
 	-- load
 	DaggLoadBlocklist()
 
-	-- free-up memory
+	-- clean-up
 	collectgarbage "collect"
 
 	-- respond with a local address just in case
@@ -162,7 +162,7 @@ function DaggUnloadBlocklist(dq)
 	-- clear
 	DaggClearTable()
 
-	-- free-up memory
+	-- clean-up
 	collectgarbage "collect"
 
 	-- respond with a local address just in case

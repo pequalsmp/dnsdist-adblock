@@ -1,3 +1,5 @@
+local blocklistPath = "/tmp/path/to/my/block.list"
+
 BlockNode = newSuffixMatchNode()
 
 -- read all the domains in a set
@@ -12,17 +14,18 @@ local function loadBlocklist(smn, file)
 
 		f:close()
 	else
-		errlog("The domain list is missing or inaccessible!")
+		errlog "The domain list is missing or inaccessible!"
 	end
 end
 
-infolog("[dagg] (re)loading blocklist...")
+infolog "[suffixMatchSpoof] loading blocklist..."
 
-loadBlocklist(BlockNode, "/tmp/path-to-my-block.list")
+loadBlocklist(BlockNode, blocklistPath)
 
-infolog("[dagg] complete!")
+infolog "[suffixMatchSpoof] loading done."
 
 -- Action to take against the domains in the blocklist
--- it is recommended to return an ip, as some apps have
--- NXDOMAIN-response workarounds
-addAction(AndRule({ SuffixMatchNodeRule(BlockNode), QTypeRule("A") }), SpoofAction("127.0.0.1"))
+--
+-- It is recommended to return an IP, as some apps have
+-- apply workarounds when the response is NXDOMAIN
+addAction(AndRule { SuffixMatchNodeRule(BlockNode), QTypeRule "A" }, SpoofAction "127.0.0.1")

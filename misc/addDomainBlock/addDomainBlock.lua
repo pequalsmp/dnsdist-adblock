@@ -1,3 +1,5 @@
+local blocklistPath = "/tmp/path/to/my/block.list"
+
 -- addDomainBlock all domains listed in the file
 local function loadBlocklist(file)
     local f = io.open(file, "rb")
@@ -11,13 +13,13 @@ local function loadBlocklist(file)
 
         f:close()
     else
-        errlog("The domain list is missing or inaccessible!")
+        errlog("The blocklist file is missing or inaccessible!")
     end
 end
 
-infolog("[dagg] (re)loading blocklist...")
+infolog("[addDomainBlock] loading blocklist...")
 
--- Warning: WAY TOO SLOW
-loadBlocklist("/tmp/path-to-my-block.list")
+-- Warning: SLOW
+loadBlocklist(blocklistPath)
 
-infolog("[dagg] complete!")
+infolog("[addDomainBlock] loading done.")
