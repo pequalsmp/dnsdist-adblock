@@ -101,20 +101,19 @@ function DaggLoadBlocklist()
 		for _ in f:lines() do
 			lineCount = lineCount + 1
 		end
-		-- string concat is not working in lua
-		-- but this uses concat
-		-- yes, it's ironic
-		--
-		-- by not working, it appears that even when
-		-- using 'local var = str2 .. str2', the memory
-		-- is not being garbage-collected and it ends up
-		-- looking like a memory leak.
-		--
-		-- might be an oversight, let me know if if there's
-		-- a better way. otherwise run this hack
-		os.execute("sed '/\\.$/ ! s/$/\\./' -i " .. file)
 
+		-- close before modifying the file with sed
 		f:close()
+
+		-- it appears that even when using:
+    --
+		-- 'local var = str2 .. str2'
+    --
+		-- the variable is not being garbage-collected
+		-- and it ends up looking like a memory leak.
+		--
+		-- let me know if if there's a better way
+		os.execute("sed '/\\.$/ ! s/$/\\./' -i " .. file)
 	else
 		errlog "[Dagg] the blocklist file missing or inaccessible!"
 	end
